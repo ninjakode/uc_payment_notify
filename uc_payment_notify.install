@@ -1,0 +1,18 @@
+<?php
+
+/**
+ * @file
+ * Install file for the UC Payment Notify module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function uc_payment_notify_install() {
+  $message = "Dear customer,\n\nWe cannot see to have received payment for the order with id !order-id.\n";
+  $message .= "The products will be shipped as soon as payment is received in full.\n";
+  $message .= "You can view the order details here: !order-url.\n\n- !site-name staff";
+  
+  variable_set('uc_payment_notify_message', $message);
+  variable_set('uc_payment_notify_subject', "Missing payment for order # !order-id");
+}

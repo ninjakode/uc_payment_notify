@@ -1,0 +1,128 @@
+<?php
+
+/**
+ * @file
+ * UC Payment Notify module, for notifying customers about missing payments for orders.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_payment_notify_menu() {
+  $items = array();
+  
+  $items['admin/store/order/%uc_order/notify-payment'] = array(
+    'title' => 'Notify about outstanding balance',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_notify_form', 3),
+    'access arguments' => array('edit orders'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['admin/store/settings/payment/edit/notify'] = array(
+    'title' => 'Missing payment notifications',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_notify_settings_form'),
+    'access arguments' => array('edit orders'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_payment_notify.admin.inc',
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_order_pane().
+ */
+function uc_payment_notify_order_pane() {
+  $panes[] = array(
+    'id' => 'payment_missing',
+    'callback' => 'uc_payment_notify_pane_display',
+    'title' => t('Missing payment email'),
+    'desc' => t('Display links for sending emails about missing payments.'),
+    'class' => 'pos-left',
+    'weight' => 4,
+    'show' => array('view', 'edit'),
+  );
+
+  return $panes;
+}
+
+/**
+ * Specify the order pane that is displayed to admins when a payment is missing.
+ */
+function uc_payment_notify_pane_display($op, $arg1) {
+  $order = $arg1;
+  
+  if ($op == 'view') {
+    $methods = variable_get('uc_payment_notify_methods', array());
+    
+    if (user_access('view payments') && (!count($methods) || in_array($order->payment_method, $methods)) 
+    && uc_payment_balance($order) > 0) {
+      $output = t('Payment is missing for this order.') . '<br />';
+      $output .= l(t('Send notification email'), 'admin/store/order/' . $order->order_id . '/notify-balance');
+      
+      return $output;
+    }
+  }
+}
+
+/**
+ * Form for sending email about outstanding order.
+ */
+function uc_payment_notify_form(&$form_state, $order) {
+  $form = array('#order' => $order);
+  
+  $form['order_id'] = array(
+    '#value' => l(t('Order id: !order-id', array('!order-id' => $order->order_id)), 'admin/store/orders/' . $order->order_id),
+  );
+  
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => variable_get('uc_payment_notify_subject', ''),
+    '#required' => TRUE,
+  );
+  
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#default_value' => variable_get('uc_payment_notify_message', ''),
+    '#required' => TRUE,
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send message'),
+  );
+  
+  return $form;
+}
+
+function uc_payment_notify_form_submit($form, &$form_state) {
+  $order = $form['#order'];
+  $subject = $form_state['values']['subject'];
+  $message = $form_state['values']['message'];
+  
+  $message = token_replace_multiple($message, array('global' => NULL, 'order' => $order));
+  $subject = token_replace_multiple($subject, array('global' => NULL, 'order' => $order));
+  
+  $message = array(
+    'id' => 'uc_payment_notify',
+    'to' => $order->primary_email,
+    'subject' => $subject,
+    'body' => drupal_wrap_mail($message),
+    'headers' => array(
+      'from' => variable_get('site_mail', ''),
+    ),
+  );
+  
+  if (drupal_mail_send($message)) {
+    drupal_set_message(t('The payment info email was sent to the customer.'));
+  }
+  else {
+    drupal_set_message(t('Could not send email.'), 'error');
+  }
+  
+  $form_state['redirect'] = 'admin/store/orders/' . $order->order_id;
+}

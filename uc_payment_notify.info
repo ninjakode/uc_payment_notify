@@ -1,0 +1,7 @@
+name = Missing payment notifier for Ubercart
+description = Allows administrators to easily send e-mails when payments are missing for orders.
+core = 6.x
+dependencies[] = uc_store
+dependencies[] = uc_payment
+dependencies[] = uc_order
+package = Ubercart - extra
