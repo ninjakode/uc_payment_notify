@@ -11,7 +11,7 @@
 function uc_payment_notify_menu() {
   $items = array();
   
-  $items['admin/store/order/%uc_order/notify-payment'] = array(
+  $items['admin/store/orders/%uc_order/notify-payment'] = array(
     'title' => 'Notify about outstanding balance',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('uc_payment_notify_form', 3),
@@ -60,7 +60,7 @@ function uc_payment_notify_pane_display($op, $arg1) {
     if (user_access('view payments') && (!count($methods) || in_array($order->payment_method, $methods)) 
     && uc_payment_balance($order) > 0) {
       $output = t('Payment is missing for this order.') . '<br />';
-      $output .= l(t('Send notification email'), 'admin/store/order/' . $order->order_id . '/notify-balance');
+      $output .= l(t('Send notification email'), 'admin/store/orders/' . $order->order_id . '/notify-payment');
       
       return $output;
     }

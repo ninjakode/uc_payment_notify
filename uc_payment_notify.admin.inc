@@ -9,8 +9,6 @@
  * UC Payment Notify settings form.
  */
 function uc_payment_notify_settings_form(&$form_state) {
-  $form = array();
-  
   $form['uc_payment_notify_subject'] = array(
     '#type' => 'textfield',
     '#title' => t('Default subject'),
@@ -42,5 +40,21 @@ function uc_payment_notify_settings_form(&$form_state) {
     '#default_value' => variable_get('uc_payment_notify_methods', array()),
   );
   
-  return system_settings_form($form);
+  $form = system_settings_form($form);
+  $form['#submit'][] = 'uc_payment_notify_settings_submit';
+  
+  return $form;
+}
+
+function uc_payment_notify_settings_submit($form, &$form_state) {
+  
+  // Save uc_payment_notify_methods in a 1-d array instead
+  $methods = array();
+  foreach ($form_state['values']['uc_payment_notify_methods'] as $method => $value) {
+    if ($value) {
+      $methods[] = $method;
+    }
+  }
+  
+  variable_set('uc_payment_notify_methods', $methods);
 }
