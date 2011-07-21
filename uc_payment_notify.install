@@ -9,10 +9,46 @@
  * Implementation of hook_install().
  */
 function uc_payment_notify_install() {
+  drupal_install_schema('uc_payment_notify');
+  
   $message = "Dear customer,\n\nWe cannot see to have received payment for the order with id !order-id.\n";
   $message .= "The products will be shipped as soon as payment is received in full.\n";
   $message .= "You can view the order details here: !order-url.\n\n- !site-name staff";
   
   variable_set('uc_payment_notify_message', $message);
   variable_set('uc_payment_notify_subject', "Missing payment for order # !order-id");
+  variable_set('uc_payment_notify_automated', 0);
+  variable_set('uc_payment_notify_automated_days', 3);
+  variable_set('uc_payment_notify_automated_num', 1);
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function uc_payment_notify_schema() {
+  $schema = array();
+  
+  $schema['uc_payment_notify_log'] = array(
+    'description' => 'Stores log of payment notifications sent.',
+    'fields' => array(
+      'order_id' => array(
+        'description' => 'The {uc_orders}.order_id the notification was sent for.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'timestamp' => array(
+        'description' => 'Unix timestamp of when the notification was sent.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'order_id' => array('order_id'),
+    ),
+  );
+  
+  return $schema;
 }

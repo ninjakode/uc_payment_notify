@@ -32,6 +32,13 @@ function uc_payment_notify_menu() {
 }
 
 /**
+ * Implementation of hook_cron().
+ */
+function uc_payment_notify_cron() {
+  
+}
+
+/**
  * Implementation of hook_order_pane().
  */
 function uc_payment_notify_order_pane() {
@@ -55,10 +62,7 @@ function uc_payment_notify_pane_display($op, $arg1) {
   $order = $arg1;
   
   if ($op == 'view') {
-    $methods = variable_get('uc_payment_notify_methods', array());
-    
-    if (user_access('view payments') && (!count($methods) || in_array($order->payment_method, $methods)) 
-    && uc_payment_balance($order) > 0) {
+    if (user_access('view payments') && uc_payment_balance($order) > 0) {
       $output = t('Payment is missing for this order.') . '<br />';
       $output .= l(t('Send notification email'), 'admin/store/orders/' . $order->order_id . '/notify-payment');
       
@@ -100,14 +104,32 @@ function uc_payment_notify_form(&$form_state, $order) {
 }
 
 function uc_payment_notify_form_submit($form, &$form_state) {
-  $order = $form['#order'];
-  $subject = $form_state['values']['subject'];
-  $message = $form_state['values']['message'];
+  if (uc_payment_notify_send($form['#order'], $form_state['values']['subject'], $form_state['values']['message'])) {
+    drupal_set_message(t('The payment info email was sent to the customer.'));
+  }
+  else {
+    drupal_set_message(t('Could not send email.'), 'error');
+  }
   
-  $message = token_replace_multiple($message, array('global' => NULL, 'order' => $order));
+  $form_state['redirect'] = 'admin/store/orders/' . $order->order_id;
+}
+
+/**
+ * Send a payment notification by email.
+ * 
+ * @param $order The order object to send a notification for.
+ * @param $subject (Optional) If given, this overrides the default subject for the email.
+ * @param $message (Optional) If given, this overrides the default message.
+ * @return TRUE if the email was sent successfully, or FALSE on error.
+ */
+function uc_payment_notify_send($order, $subject = '', $message = '') {
+  $subject = empty($subject) ? variable_get('uc_payment_notify_subject') : $subject;
+  $message = empty($message) ? variable_get('uc_payment_notify_message') : $message;
+  
   $subject = token_replace_multiple($subject, array('global' => NULL, 'order' => $order));
+  $message = token_replace_multiple($message, array('global' => NULL, 'order' => $order));
   
-  $message = array(
+  $mail = array(
     'id' => 'uc_payment_notify',
     'to' => $order->primary_email,
     'subject' => $subject,
@@ -117,12 +139,10 @@ function uc_payment_notify_form_submit($form, &$form_state) {
     ),
   );
   
-  if (drupal_mail_send($message)) {
-    drupal_set_message(t('The payment info email was sent to the customer.'));
-  }
-  else {
-    drupal_set_message(t('Could not send email.'), 'error');
+  if (drupal_mail_send($mail)) {
+    db_query("INSERT INTO {uc_payment_notify_log} (order_id, timestamp) VALUES (%d, %d)", $order->order_id, time());
+    return TRUE;
   }
   
-  $form_state['redirect'] = 'admin/store/orders/' . $order->order_id;
+  return FALSE;
 }
